@@ -1,22 +1,23 @@
 {
   "version": "1.0.0",
-  "lastSync": "2025-07-07T11:59:57.643Z",
+  "lastSync": "2025-07-07T12:02:27.620Z",
   "files": {
     "README.md": {
-      "fileId": "file-BFH6zHw2jYveaosNX8HSPD",
+      "fileId": "file-1",
       "metadata": {
         "path": "README.md",
-        "hash": "58534543d4b5e2009df60ed3d441230b",
+        "hash": "b4921516adfbc679237e009b6dd68a920abdea12b0738ca4930e53cb6137d5f2",
         "size": 327,
         "lastModified": "2025-07-07T09:58:54.325Z",
         "mimeType": "text/markdown",
         "encoding": "utf-8",
-        "provider": "openai",
-        "uploadedAt": "2025-07-07T11:59:34.475Z",
-        "storeId": "vs_686bb3fe511c81918e73ecdaddd00a08"
+        "provider": "example",
+        "uploadedAt": "2025-07-07T12:02:26.570Z",
+        "customField": "example-value",
+        "processedAt": "2025-07-07T12:02:26.570Z"
       },
-      "uploadedAt": "2025-07-07T11:59:37.305Z",
-      "version": 2
+      "uploadedAt": "2025-07-07T12:02:27.580Z",
+      "version": 1
     }
   }
 }
