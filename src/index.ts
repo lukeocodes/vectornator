@@ -7,4 +7,3 @@ export { providerRegistry } from './providers/registry';
 export { SyncEngine } from './core/sync-engine';
 export { FileScanner } from './core/file-scanner';
 export { MetadataManager } from './core/metadata-manager';
-export { GitMetadataManager } from './core/git-metadata-manager'; 

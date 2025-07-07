@@ -20,7 +20,7 @@ interface SyncOptions {
     dryRun?: boolean;
     force?: boolean;
     metadataFile?: string;
-    gitNotes?: boolean;
+    metadataStorage?: string;
     storeId?: string;
     apiKey?: string;
     verbose?: boolean;
@@ -38,8 +38,7 @@ interface CreateStoreOptions {
 }
 
 interface ShowMetadataOptions {
-    commit: string;
-    gitNotes?: boolean;
+    metadataStorage?: string;
     metadataFile?: string;
 }
 
@@ -59,8 +58,8 @@ program
     .option('--exclude <patterns...>', 'File patterns to exclude')
     .option('--dry-run', 'Show what would be done without making changes')
     .option('--force', 'Force sync even if no changes detected')
-    .option('--metadata-file <path>', 'Path to metadata file (when not using git notes)')
-    .option('--no-git-notes', 'Use file-based metadata instead of git notes')
+    .option('--metadata-file <path>', 'Path to metadata file (when using file storage)')
+    .option('--metadata-storage <type>', 'Metadata storage type: git-branch or file', 'git-branch')
     .option('--store-id <id>', 'Vector store ID')
     .option('--api-key <key>', 'API key for the provider')
     .option('-v, --verbose', 'Verbose output')
@@ -75,14 +74,10 @@ program
             });
 
             // Create sync engine
-            const useGitNotes = options.gitNotes !== false;
-            const engine = new SyncEngine(provider, options.metadataFile, useGitNotes);
+            const metadataStorage = options.metadataStorage || 'git-branch';
+            const engine = new SyncEngine(provider, options.metadataFile, metadataStorage);
 
-            if (useGitNotes) {
-                console.log(chalk.gray('Using git notes for metadata storage'));
-            } else {
-                console.log(chalk.gray(`Using file-based metadata: ${options.metadataFile || '.vectornator/metadata.json'}`));
-            }
+            console.log(chalk.gray(`Using ${metadataStorage} for metadata storage`));
 
             // Run sync
             const result = await engine.sync({
@@ -164,26 +159,21 @@ program
 
 program
     .command('show-metadata')
-    .description('Show metadata for current commit')
-    .option('--commit <sha>', 'Show metadata for specific commit', 'HEAD')
-    .option('--no-git-notes', 'Use file-based metadata instead of git notes')
-    .option('--metadata-file <path>', 'Path to metadata file (when not using git notes)')
+    .description('Show metadata')
+    .option('--metadata-storage <type>', 'Metadata storage type: git-branch or file', 'git-branch')
+    .option('--metadata-file <path>', 'Path to metadata file (when using file storage)')
     .action(async (options: ShowMetadataOptions) => {
         try {
-            const useGitNotes = options.gitNotes !== false;
+            const metadataStorage = options.metadataStorage || 'git-branch';
 
-            if (useGitNotes) {
-                const { GitMetadataManager } = await import('./core/git-metadata-manager');
-                const manager = new GitMetadataManager();
+            if (metadataStorage === 'git-branch') {
+                const { GitBranchMetadataManager } = await import('./core/git-branch-metadata-manager');
+                const manager = new GitBranchMetadataManager();
 
-                console.log(chalk.cyan(`\nMetadata for commit ${options.commit}:\n`));
+                console.log(chalk.cyan('\nGit branch metadata:\n'));
 
-                const metadata = await manager.getMetadataForCommit(options.commit);
-                if (metadata) {
-                    console.log(JSON.stringify(metadata, null, 2));
-                } else {
-                    console.log(chalk.yellow('No metadata found for this commit'));
-                }
+                const metadata = await manager.load();
+                console.log(JSON.stringify(metadata, null, 2));
             } else {
                 const { MetadataManager } = await import('./core/metadata-manager');
                 const manager = new MetadataManager(options.metadataFile);

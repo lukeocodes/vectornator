@@ -13,7 +13,7 @@ Maintain remote vector stores with your repository content. Automatically sync d
 - 🎯 **Metadata Rich**: Sends comprehensive metadata with each file
 - 🔌 **Extensible**: Support for multiple vector store providers
 - 📦 **Dual Usage**: Works as both npm package and GitHub Action
-- 🔐 **Git Notes Storage**: Store sync metadata in git notes (no file clutter!)
+- 🔐 **Git Branch Storage**: Store sync metadata in a dedicated git branch (no file clutter!)
 - 🎨 **Beautiful CLI**: Colored output with progress indicators
 
 ## Quick Start
@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Required for git notes
+          fetch-depth: 0 # Required for git branch metadata
 
       - uses: lukeocodes/vectornator@v1
         with:
@@ -96,7 +96,7 @@ Options:
   --patterns <patterns...>    File patterns to include
   --exclude <patterns...>     File patterns to exclude
   --dry-run                   Show what would be done without making changes
-  --no-git-notes             Use file-based metadata instead of git notes
+  --metadata-storage <type>  Metadata storage type: git-branch or file (default: git-branch)
   --store-id <id>            Vector store ID
   --api-key <key>            API key for the provider
   -v, --verbose              Verbose output
@@ -154,31 +154,28 @@ vectornator sync --patterns "**/*.md"
 vectornator sync --exclude "**/test/**" "**/*.test.md"
 ```
 
-### Using Git Notes for Metadata
+### Metadata Storage
 
-By default, Vectornator stores sync metadata in git notes. This keeps your repository clean:
+By default, Vectornator stores sync metadata in a dedicated git branch. This keeps your repository clean:
 
 ```bash
-# View metadata for current commit
+# View metadata
 vectornator show-metadata
 
-# View metadata for specific commit
-vectornator show-metadata --commit abc123
-
 # Use file-based metadata instead
-vectornator sync --no-git-notes
+vectornator sync --metadata-storage file
 ```
 
 ## Metadata Storage
 
-Vectornator uses **git notes** by default to store sync metadata. This means:
+Vectornator uses a **dedicated git branch** by default to store sync metadata. This means:
 
 - ✅ No `.vectornator` directory in your repo
-- ✅ Metadata travels with your git history
-- ✅ Each commit can have its own sync state
-- ✅ Works seamlessly in CI/CD environments
+- ✅ Metadata is versioned and distributed with the repository
+- ✅ Works seamlessly with GitHub Actions
+- ✅ No timing issues between local and CI syncs
 
-The metadata is stored in `refs/notes/vectornator` and includes:
+The metadata is stored in the `vectornator-metadata` branch and includes:
 
 - File hashes for change detection
 - Vector store file IDs
@@ -273,11 +270,11 @@ vectornator/
 2. **Change Detection**: Computes SHA-256 hashes to detect changes
 3. **Metadata Enrichment**: Adds file metadata (size, path, timestamps)
 4. **Smart Sync**: Only uploads changed files, removes deleted files
-5. **State Tracking**: Stores sync state in git notes or local file
+5. **State Tracking**: Stores sync state in git branch or local file
 
-### Metadata Storage
+### Metadata Storage Options
 
-Vectornator supports multiple metadata storage strategies:
+Vectornator supports two metadata storage strategies:
 
 #### Git Branch (Default)
 
@@ -286,27 +283,17 @@ Uses a dedicated `vectornator-metadata` branch to store sync state:
 - Metadata is independent of commits
 - Works seamlessly with GitHub Actions
 - No timing issues between local and CI syncs
+- Automatically managed by the tool
 
 ```bash
-# Push metadata branch after local sync
-git push origin vectornator-metadata
+# Default behavior
+vectornator sync
+
+# Explicitly specify git-branch storage
+vectornator sync --metadata-storage git-branch
 ```
 
-#### Git Notes (Legacy)
-
-Attaches metadata to specific commits:
-
-- Sync state travels with commit history
-- Different commits have different states
-- May have timing issues in CI/CD
-
-```bash
-# Use git notes storage
-vectornator sync --metadata-storage git-notes
-
-# Push notes after sync
-git push origin refs/notes/vectornator
-```
+The GitHub Action automatically handles fetching and pushing the metadata branch.
 
 #### File-based
 
@@ -314,14 +301,12 @@ Stores metadata in `.vectornator/metadata.json`:
 
 - Simple and portable
 - No git integration required
-- Must be committed to share state
+- Must be committed to share state between environments
 
 ```bash
 # Use file storage
-vectornator sync --metadata-storage file
+vectornator sync --metadata-storage file --metadata-file .vectornator/metadata.json
 ```
-
-The GitHub Action automatically handles fetching and pushing metadata for all storage types.
 
 ## Best Practices
 
@@ -329,7 +314,7 @@ The GitHub Action automatically handles fetching and pushing metadata for all st
 2. **Exclude Large Files**: Vector stores work best with text content
 3. **Regular Syncs**: Set up CI/CD to sync on every push
 4. **Monitor Usage**: Track your API usage and costs
-5. **Version Control**: The git notes metadata travels with your code
+5. **Version Control**: The metadata travels with your repository
 
 ## Troubleshooting
 
@@ -349,13 +334,19 @@ For existing projects, run an initial sync:
 vectornator sync --force
 ```
 
-### Git Notes Not Working
+### Metadata Branch Issues
 
-Ensure your repository is configured:
+If you need to reset the metadata branch:
 
 ```bash
-git config --add notes.displayRef refs/notes/vectornator
-git config --add remote.origin.fetch "+refs/notes/*:refs/notes/*"
+# Delete local metadata branch
+git branch -D vectornator-metadata
+
+# Delete remote metadata branch
+git push origin --delete vectornator-metadata
+
+# Run sync again to recreate
+vectornator sync
 ```
 
 ## Contributing
@@ -369,5 +360,4 @@ MIT © Luke Oliff
 ## Acknowledgments
 
 - Inspired by the need to keep AI applications in sync with documentation
-- Git notes idea from [@lukeocodes](https://github.com/lukeocodes)
 - Built with TypeScript and ❤️

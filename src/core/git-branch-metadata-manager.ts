@@ -159,8 +159,9 @@ export class GitBranchMetadataManager extends MetadataManager {
     async pushMetadata(): Promise<void> {
         try {
             await execAsync(`git push origin ${this.metadataBranch}`);
-        } catch (error: any) {
-            if (error.code === 128 && error.stderr?.includes("'origin' does not appear to be a git repository")) {
+        } catch (error) {
+            const execError = error as { code?: number; stderr?: string };
+            if (execError.code === 128 && execError.stderr?.includes("'origin' does not appear to be a git repository")) {
                 // No remote configured - this is fine for local repos
                 return;
             }
@@ -175,14 +176,15 @@ export class GitBranchMetadataManager extends MetadataManager {
         try {
             // Try to fetch the metadata branch
             await execAsync(`git fetch origin ${this.metadataBranch}:${this.metadataBranch}`);
-        } catch (error: any) {
+        } catch (error) {
             // Handle common cases gracefully
-            if (error.code === 128) {
-                if (error.stderr?.includes("couldn't find remote ref")) {
+            const execError = error as { code?: number; stderr?: string };
+            if (execError.code === 128) {
+                if (execError.stderr?.includes("couldn't find remote ref")) {
                     // This is normal for first-time use - branch doesn't exist on remote yet
                     return;
                 }
-                if (error.stderr?.includes("'origin' does not appear to be a git repository")) {
+                if (execError.stderr?.includes("'origin' does not appear to be a git repository")) {
                     // No remote configured - this is fine for local repos
                     return;
                 }

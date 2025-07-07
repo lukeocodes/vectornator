@@ -1,7 +1,7 @@
 import { VectorStoreProvider, SyncOptions, SyncResult, ProgressCallback } from '../types';
 import { FileScanner } from './file-scanner';
 import { MetadataManager } from './metadata-manager';
-import { GitMetadataManager } from './git-metadata-manager';
+import { GitBranchMetadataManager } from './git-branch-metadata-manager';
 import chalk from 'chalk';
 import ora from 'ora';
 
@@ -11,15 +11,19 @@ export class SyncEngine {
     private metadataManager: MetadataManager;
     private verbose: boolean = false;
 
-    constructor(provider: VectorStoreProvider, metadataPath?: string, useGitNotes: boolean = true) {
+    constructor(provider: VectorStoreProvider, metadataPath?: string, metadataStorage: string = 'git-branch') {
         this.provider = provider;
         this.scanner = new FileScanner();
 
-        // Use git notes by default, fall back to file-based if requested
-        if (useGitNotes) {
-            this.metadataManager = new GitMetadataManager();
-        } else {
-            this.metadataManager = new MetadataManager(metadataPath);
+        // Choose metadata manager based on storage type
+        switch (metadataStorage) {
+            case 'git-branch':
+                this.metadataManager = new GitBranchMetadataManager();
+                break;
+            case 'file':
+            default:
+                this.metadataManager = new MetadataManager(metadataPath);
+                break;
         }
     }
 
@@ -37,10 +41,10 @@ export class SyncEngine {
         };
 
         try {
-            // If using git notes, fetch them first
-            if (this.metadataManager instanceof GitMetadataManager) {
-                this.log('Fetching metadata from git notes...');
-                await this.metadataManager.fetchNotes();
+            // Fetch metadata based on type
+            if (this.metadataManager instanceof GitBranchMetadataManager) {
+                // Fetch metadata branch
+                await this.metadataManager.fetchMetadata();
             }
 
             // Step 1: Verify vector store
@@ -205,10 +209,10 @@ export class SyncEngine {
             // Step 9: Save metadata
             await this.metadataManager.save();
 
-            // If using git notes, push them
-            if (this.metadataManager instanceof GitMetadataManager) {
-                this.log('Pushing metadata to git notes...');
-                await this.metadataManager.pushNotes();
+            // Push metadata based on type
+            if (this.metadataManager instanceof GitBranchMetadataManager) {
+                // Push metadata branch
+                await this.metadataManager.pushMetadata();
             }
 
             // Step 10: Cleanup

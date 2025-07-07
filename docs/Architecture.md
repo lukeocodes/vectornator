@@ -2,151 +2,161 @@
 
 ## Overview
 
-Vectornator is designed as a modular, extensible system for synchronizing repository content with vector stores. The architecture supports multiple vector store providers and uses git notes for metadata storage.
+Vectornator is a tool for maintaining remote vector stores with repository content. It supports multiple vector store providers and uses git branches for metadata storage.
 
 ## Core Components
 
-### 1. Provider System
+### 1. File Scanner
 
-The provider system is built around a common interface that all vector store implementations must follow:
-
-```typescript
-interface VectorStoreProvider {
-  initialize(config: VectorStoreConfig): Promise<void>;
-  verifyStore(): Promise<boolean>;
-  createStore(name: string): Promise<string>;
-  listFiles(): Promise<VectorStoreFile[]>;
-  uploadFile(...): Promise<string>;
-  updateFile(...): Promise<void>;
-  deleteFile(fileId: string): Promise<void>;
-  // ... more methods
-}
-```
-
-#### Built-in Providers
-
-- **OpenAI Provider**: Full implementation for OpenAI's vector store API
-- **Example Provider**: Reference implementation for custom providers
-
-#### Provider Registry
-
-The provider registry manages available providers and handles instantiation:
-
-```typescript
-providerRegistry.register("custom", (config) => new CustomProvider());
-const provider = await providerRegistry.get("custom", config);
-```
+- Discovers files based on patterns
+- Calculates SHA-256 hashes for change detection
+- Extracts file metadata (size, modification time, etc.)
+- Supports glob patterns for include/exclude
 
 ### 2. Sync Engine
 
-The sync engine orchestrates the synchronization process:
+- Orchestrates the synchronization process
+- Compares local and remote states
+- Handles additions, updates, and deletions
+- Provides progress reporting
 
-1. **File Discovery**: Scans directories for matching files
-2. **Change Detection**: Compares file hashes to detect changes
-3. **Smart Sync**: Only syncs changed files
-4. **Metadata Management**: Tracks sync state
+### 3. Vector Store Providers
 
-### 3. Metadata Storage
+- Abstract interface for different vector stores
+- OpenAI implementation included
+- Extensible for custom providers
+- Handles authentication and API communication
 
-#### Git Notes (Default)
+### 4. Metadata Management
 
-Metadata is stored in `refs/notes/vectornator`:
+- Tracks sync state between local and remote
+- Stores file hashes and vector store IDs
+- Two storage strategies:
+  - Git branch (default)
+  - File-based
+
+## Data Flow
+
+```
+1. File Discovery
+   └─> Scanner finds matching files
+
+2. Hash Calculation
+   └─> SHA-256 for each file
+
+3. State Comparison
+   └─> Compare with stored metadata
+
+4. Sync Operations
+   ├─> Add new files
+   ├─> Update changed files
+   └─> Delete removed files
+
+5. Metadata Update
+   └─> Save new state
+```
+
+## Metadata Storage
+
+### Git Branch (Default)
+
+Metadata is stored in a dedicated `vectornator-metadata` branch:
 
 ```json
 {
   "version": "1.0.0",
-  "lastSync": "2024-01-01T00:00:00Z",
+  "lastSync": "2024-01-15T10:30:00Z",
   "storeId": "vs_abc123",
   "files": {
-    "docs/readme.md": {
-      "fileId": "file_xyz",
-      "hash": "sha256...",
-      "version": 1
+    "docs/README.md": {
+      "fileId": "file_xyz789",
+      "hash": "sha256:abc...",
+      "uploadedAt": "2024-01-15T10:30:00Z",
+      "version": 1,
+      "metadata": {
+        "path": "docs/README.md",
+        "size": 1234,
+        "lastModified": "2024-01-15T10:00:00Z"
+      }
     }
   }
 }
 ```
 
-Benefits:
+### File-based Storage
 
-- No repository clutter
-- Metadata travels with git history
-- Per-commit sync state
-- Works in CI/CD
+When git integration isn't needed, metadata is stored in `.vectornator/metadata.json`.
 
-#### File-based (Fallback)
-
-When git notes aren't available, metadata is stored in `.vectornator/metadata.json`.
-
-### 4. File Scanner
-
-The file scanner discovers and processes files:
-
-- **Pattern Matching**: Uses glob patterns for file selection
-- **Hash Calculation**: SHA-256 for change detection
-- **Metadata Extraction**: File size, timestamps, MIME types
-
-### 5. CLI Interface
-
-The CLI provides user-friendly commands:
-
-- `sync`: Main synchronization command
-- `list`: List files in vector store
-- `create-store`: Create new vector store
-- `show-metadata`: View sync metadata
-
-## Data Flow
-
-```
-1. User runs: vectornator sync
-2. File Scanner discovers files
-3. Metadata Manager loads previous state
-4. Sync Engine compares local vs remote
-5. Provider uploads/updates/deletes files
-6. Metadata Manager saves new state
-7. Git Notes pushed to remote
-```
-
-## Extension Points
-
-### Custom Providers
-
-1. Extend `BaseVectorStoreProvider`
-2. Implement required methods
-3. Register with provider registry
-
-### Custom Metadata
-
-Providers can enrich metadata:
+## Provider Interface
 
 ```typescript
-async enrichMetadata(filePath, content, baseMetadata) {
-  return {
-    ...baseMetadata,
-    customField: 'value',
-    embeddings: await this.generateEmbeddings(content)
-  };
+interface VectorStoreProvider {
+  // Connection
+  initialize(config: VectorStoreConfig): Promise<void>;
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+
+  // Store operations
+  verifyStore(): Promise<boolean>;
+  createStore(name: string): Promise<string>;
+
+  // File operations
+  uploadFile(
+    path: string,
+    content: Buffer,
+    metadata: FileMetadata
+  ): Promise<string>;
+  updateFile(
+    fileId: string,
+    content: Buffer,
+    metadata: FileMetadata
+  ): Promise<void>;
+  deleteFile(fileId: string): Promise<void>;
+  listFiles(): Promise<RemoteFile[]>;
+
+  // Utilities
+  enrichMetadata(
+    path: string,
+    content: Buffer,
+    metadata: FileMetadata
+  ): Promise<FileMetadata>;
+  cleanup(): Promise<void>;
 }
 ```
 
+## GitHub Action Integration
+
+1. Checkout with full history
+2. Fetch metadata branch if exists
+3. Install vectornator
+4. Run sync
+5. Push metadata branch to remote
+6. Report results
+
 ## Security Considerations
 
-- API keys stored in environment variables
-- No sensitive data in git notes
-- Secure HTTPS connections
-- Rate limiting and retries
+- API keys via environment variables
+- No credentials in metadata
+- Metadata branch permissions same as code
+- File content never stored locally
 
-## Performance Optimizations
+## Performance
 
 - Parallel file processing where possible
-- Chunked uploads for large files
-- Hash-based change detection
-- Incremental syncs
+- Incremental sync (only changed files)
+- Progress reporting for large operations
+- Efficient hash comparison
+
+## Error Handling
+
+- Graceful degradation
+- Detailed error messages
+- Retry logic for transient failures
+- Rollback capability via git
 
 ## Future Enhancements
 
-1. **Streaming Uploads**: For very large files
-2. **Compression**: Reduce bandwidth usage
-3. **Caching**: Local cache for faster syncs
-4. **Webhooks**: Real-time sync triggers
-5. **Multi-store Support**: Sync to multiple stores
+- Additional vector store providers
+- Batch operations for large files
+- Compression support
+- Delta sync for large documents
