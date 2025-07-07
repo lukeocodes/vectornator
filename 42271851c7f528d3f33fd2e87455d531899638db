@@ -1,23 +1,7 @@
 {
   "version": "1.0.0",
-  "lastSync": "2025-07-07T11:59:37.341Z",
+  "lastSync": "2025-07-07T11:59:57.643Z",
   "files": {
-    "guide.md": {
-      "fileId": "file-CDAdJPujvE8pTLM555WkrX",
-      "metadata": {
-        "path": "guide.md",
-        "hash": "25a11aa9dc0355ba7be4460b9fa01b5d",
-        "size": 294,
-        "lastModified": "2025-07-07T09:58:54.324Z",
-        "mimeType": "text/markdown",
-        "encoding": "utf-8",
-        "provider": "openai",
-        "uploadedAt": "2025-07-07T11:58:23.857Z",
-        "storeId": "vs_686bb3fe511c81918e73ecdaddd00a08"
-      },
-      "uploadedAt": "2025-07-07T11:58:27.244Z",
-      "version": 1
-    },
     "README.md": {
       "fileId": "file-BFH6zHw2jYveaosNX8HSPD",
       "metadata": {
