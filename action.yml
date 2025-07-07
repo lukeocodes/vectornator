@@ -1,0 +1,147 @@
+name: "Luke's Vectornator"
+description: "Maintain remote vector stores with your repository content"
+author: "Luke Oliff"
+branding:
+  icon: "database"
+  color: "purple"
+
+inputs:
+  directory:
+    description: "Directory to sync"
+    required: false
+    default: "."
+
+  provider:
+    description: "Vector store provider (openai, pinecone, custom)"
+    required: false
+    default: "openai"
+
+  api-key:
+    description: "API key for the vector store provider"
+    required: true
+
+  store-id:
+    description: "Vector store ID"
+    required: false
+
+  patterns:
+    description: "File patterns to include (comma-separated)"
+    required: false
+    default: "**/*.md,**/*.mdx,**/*.txt"
+
+  exclude:
+    description: "File patterns to exclude (comma-separated)"
+    required: false
+    default: "node_modules/**,.git/**,dist/**"
+
+  dry-run:
+    description: "Show what would be done without making changes"
+    required: false
+    default: "false"
+
+  metadata-file:
+    description: "Path to metadata file"
+    required: false
+    default: ".vectornator/metadata.json"
+
+  verbose:
+    description: "Enable verbose output"
+    required: false
+    default: "false"
+
+outputs:
+  files-added:
+    description: "Number of files added"
+    value: ${{ steps.sync.outputs.files-added }}
+
+  files-updated:
+    description: "Number of files updated"
+    value: ${{ steps.sync.outputs.files-updated }}
+
+  files-deleted:
+    description: "Number of files deleted"
+    value: ${{ steps.sync.outputs.files-deleted }}
+
+  files-failed:
+    description: "Number of files that failed to sync"
+    value: ${{ steps.sync.outputs.files-failed }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "18"
+
+    - name: Install Vectornator
+      shell: bash
+      run: |
+        npm install -g @lukeocodes/vectornator@latest
+
+    - name: Sync to Vector Store
+      id: sync
+      shell: bash
+      run: |
+        # Convert comma-separated patterns to space-separated
+        PATTERNS="${{ inputs.patterns }}"
+        PATTERNS_ARGS=""
+        if [ -n "$PATTERNS" ]; then
+          IFS=',' read -ra PATTERN_ARRAY <<< "$PATTERNS"
+          for pattern in "${PATTERN_ARRAY[@]}"; do
+            PATTERNS_ARGS="$PATTERNS_ARGS --patterns $pattern"
+          done
+        fi
+
+        # Convert comma-separated excludes to space-separated
+        EXCLUDES="${{ inputs.exclude }}"
+        EXCLUDE_ARGS=""
+        if [ -n "$EXCLUDES" ]; then
+          IFS=',' read -ra EXCLUDE_ARRAY <<< "$EXCLUDES"
+          for exclude in "${EXCLUDE_ARRAY[@]}"; do
+            EXCLUDE_ARGS="$EXCLUDE_ARGS --exclude $exclude"
+          done
+        fi
+
+        # Build command
+        CMD="vectornator sync"
+        CMD="$CMD --directory ${{ inputs.directory }}"
+        CMD="$CMD --provider ${{ inputs.provider }}"
+        CMD="$CMD --api-key ${{ inputs.api-key }}"
+
+        if [ -n "${{ inputs.store-id }}" ]; then
+          CMD="$CMD --store-id ${{ inputs.store-id }}"
+        fi
+
+        if [ "${{ inputs.dry-run }}" = "true" ]; then
+          CMD="$CMD --dry-run"
+        fi
+
+        if [ "${{ inputs.verbose }}" = "true" ]; then
+          CMD="$CMD --verbose"
+        fi
+
+        CMD="$CMD --metadata-file ${{ inputs.metadata-file }}"
+        CMD="$CMD $PATTERNS_ARGS"
+        CMD="$CMD $EXCLUDE_ARGS"
+
+        # Run sync and capture output
+        OUTPUT=$(eval $CMD 2>&1) || EXIT_CODE=$?
+        echo "$OUTPUT"
+
+        # Parse output for results
+        ADDED=$(echo "$OUTPUT" | grep -oP '✓ Added: \K\d+' || echo "0")
+        UPDATED=$(echo "$OUTPUT" | grep -oP '✓ Updated: \K\d+' || echo "0")
+        DELETED=$(echo "$OUTPUT" | grep -oP '✓ Deleted: \K\d+' || echo "0")
+        FAILED=$(echo "$OUTPUT" | grep -oP '✗ Failed: \K\d+' || echo "0")
+
+        # Set outputs
+        echo "files-added=$ADDED" >> $GITHUB_OUTPUT
+        echo "files-updated=$UPDATED" >> $GITHUB_OUTPUT
+        echo "files-deleted=$DELETED" >> $GITHUB_OUTPUT
+        echo "files-failed=$FAILED" >> $GITHUB_OUTPUT
+
+        # Exit with error if sync failed
+        if [ -n "$EXIT_CODE" ]; then
+          exit $EXIT_CODE
+        fi

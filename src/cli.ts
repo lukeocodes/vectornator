@@ -1,0 +1,213 @@
+#!/usr/bin/env node
+
+import { Command } from 'commander';
+import { config as loadEnv } from 'dotenv';
+import * as path from 'path';
+import chalk from 'chalk';
+import { SyncEngine } from './core/sync-engine';
+import { providerRegistry } from './providers/registry';
+import { VectorStoreProvider, VectorStoreConfig } from './types';
+
+// Load environment variables
+loadEnv();
+
+// CLI option types
+interface SyncOptions {
+    directory: string;
+    provider: string;
+    patterns?: string[];
+    exclude?: string[];
+    dryRun?: boolean;
+    force?: boolean;
+    metadataFile?: string;
+    gitNotes?: boolean;
+    storeId?: string;
+    apiKey?: string;
+    verbose?: boolean;
+}
+
+interface ListOptions {
+    provider: string;
+    storeId?: string;
+    apiKey?: string;
+}
+
+interface CreateStoreOptions {
+    provider: string;
+    apiKey?: string;
+}
+
+interface ShowMetadataOptions {
+    commit: string;
+    gitNotes?: boolean;
+    metadataFile?: string;
+}
+
+const program = new Command();
+
+program
+    .name('vectornator')
+    .description('Maintain remote vector stores with your repository content')
+    .version('1.0.0');
+
+program
+    .command('sync')
+    .description('Sync files to vector store')
+    .option('-d, --directory <path>', 'Directory to sync', '.')
+    .option('-p, --provider <name>', 'Vector store provider', 'openai')
+    .option('--patterns <patterns...>', 'File patterns to include')
+    .option('--exclude <patterns...>', 'File patterns to exclude')
+    .option('--dry-run', 'Show what would be done without making changes')
+    .option('--force', 'Force sync even if no changes detected')
+    .option('--metadata-file <path>', 'Path to metadata file (when not using git notes)')
+    .option('--no-git-notes', 'Use file-based metadata instead of git notes')
+    .option('--store-id <id>', 'Vector store ID')
+    .option('--api-key <key>', 'API key for the provider')
+    .option('-v, --verbose', 'Verbose output')
+    .action(async (options: SyncOptions) => {
+        try {
+            console.log(chalk.cyan('🚀 Vectornator - Vector Store Sync\n'));
+
+            // Get provider
+            const provider = await getProvider(options.provider, {
+                apiKey: options.apiKey || process.env[`${options.provider.toUpperCase()}_API_KEY`],
+                storeId: options.storeId || process.env[`${options.provider.toUpperCase()}_STORE_ID`]
+            });
+
+            // Create sync engine
+            const useGitNotes = options.gitNotes !== false;
+            const engine = new SyncEngine(provider, options.metadataFile, useGitNotes);
+
+            if (useGitNotes) {
+                console.log(chalk.gray('Using git notes for metadata storage'));
+            } else {
+                console.log(chalk.gray(`Using file-based metadata: ${options.metadataFile || '.vectornator/metadata.json'}`));
+            }
+
+            // Run sync
+            const result = await engine.sync({
+                directory: path.resolve(options.directory),
+                patterns: options.patterns,
+                exclude: options.exclude,
+                dryRun: options.dryRun,
+                force: options.force,
+                verbose: options.verbose
+            });
+
+            // Exit with appropriate code
+            process.exit(result.failed.length > 0 ? 1 : 0);
+        } catch (error) {
+            console.error(chalk.red('Error:'), error);
+            process.exit(1);
+        }
+    });
+
+program
+    .command('list')
+    .description('List files in vector store')
+    .option('-p, --provider <name>', 'Vector store provider', 'openai')
+    .option('--store-id <id>', 'Vector store ID')
+    .option('--api-key <key>', 'API key for the provider')
+    .action(async (options: ListOptions) => {
+        try {
+            const provider = await getProvider(options.provider, {
+                apiKey: options.apiKey || process.env[`${options.provider.toUpperCase()}_API_KEY`],
+                storeId: options.storeId || process.env[`${options.provider.toUpperCase()}_STORE_ID`]
+            });
+
+            const files = await provider.listFiles();
+
+            console.log(chalk.cyan(`\nFiles in vector store (${files.length} total):\n`));
+
+            for (const file of files) {
+                console.log(`  ${chalk.green('•')} ${file.metadata.path || file.id}`);
+                if (file.metadata.size) {
+                    console.log(`    Size: ${formatBytes(file.metadata.size)}`);
+                }
+                if (file.metadata.lastModified) {
+                    console.log(`    Modified: ${new Date(file.metadata.lastModified).toLocaleString()}`);
+                }
+            }
+
+            await provider.cleanup();
+        } catch (error) {
+            console.error(chalk.red('Error:'), error);
+            process.exit(1);
+        }
+    });
+
+program
+    .command('create-store <name>')
+    .description('Create a new vector store')
+    .option('-p, --provider <name>', 'Vector store provider', 'openai')
+    .option('--api-key <key>', 'API key for the provider')
+    .action(async (name: string, options: CreateStoreOptions) => {
+        try {
+            const provider = await getProvider(options.provider, {
+                apiKey: options.apiKey || process.env[`${options.provider.toUpperCase()}_API_KEY`]
+            });
+
+            console.log(chalk.cyan(`Creating vector store: ${name}...`));
+            const storeId = await provider.createStore(name);
+
+            console.log(chalk.green(`\n✓ Vector store created successfully!`));
+            console.log(chalk.gray(`Store ID: ${storeId}`));
+            console.log(chalk.gray(`\nAdd this to your environment variables:`));
+            console.log(chalk.yellow(`${options.provider.toUpperCase()}_STORE_ID=${storeId}`));
+
+            await provider.cleanup();
+        } catch (error) {
+            console.error(chalk.red('Error:'), error);
+            process.exit(1);
+        }
+    });
+
+program
+    .command('show-metadata')
+    .description('Show metadata for current commit')
+    .option('--commit <sha>', 'Show metadata for specific commit', 'HEAD')
+    .option('--no-git-notes', 'Use file-based metadata instead of git notes')
+    .option('--metadata-file <path>', 'Path to metadata file (when not using git notes)')
+    .action(async (options: ShowMetadataOptions) => {
+        try {
+            const useGitNotes = options.gitNotes !== false;
+
+            if (useGitNotes) {
+                const { GitMetadataManager } = await import('./core/git-metadata-manager');
+                const manager = new GitMetadataManager();
+
+                console.log(chalk.cyan(`\nMetadata for commit ${options.commit}:\n`));
+
+                const metadata = await manager.getMetadataForCommit(options.commit);
+                if (metadata) {
+                    console.log(JSON.stringify(metadata, null, 2));
+                } else {
+                    console.log(chalk.yellow('No metadata found for this commit'));
+                }
+            } else {
+                const { MetadataManager } = await import('./core/metadata-manager');
+                const manager = new MetadataManager(options.metadataFile);
+
+                const metadata = await manager.load();
+                console.log(chalk.cyan('\nFile-based metadata:\n'));
+                console.log(JSON.stringify(metadata, null, 2));
+            }
+        } catch (error) {
+            console.error(chalk.red('Error:'), error);
+            process.exit(1);
+        }
+    });
+
+async function getProvider(name: string, config: VectorStoreConfig): Promise<VectorStoreProvider> {
+    return providerRegistry.get(name, config);
+}
+
+function formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+program.parse(); 

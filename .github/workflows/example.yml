@@ -1,0 +1,46 @@
+name: Sync Documentation to Vector Store
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "*.md"
+      - "*.mdx"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Run in dry-run mode"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # Required for git notes
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for git notes
+
+      - name: Configure git for notes
+        run: |
+          git config --add notes.displayRef refs/notes/vectornator
+          git config --add remote.origin.fetch "+refs/notes/*:refs/notes/*"
+          git fetch origin refs/notes/*:refs/notes/*
+
+      - name: Sync to OpenAI Vector Store
+        uses: lukeocodes/vectornator@v1.0.0
+        with:
+          api-key: ${{ secrets.OPENAI_API_KEY }}
+          store-id: ${{ secrets.OPENAI_VECTOR_STORE_ID }}
+          directory: docs
+          patterns: "**/*.md,**/*.mdx"
+          exclude: "**/test/**,**/drafts/**"
+          dry-run: ${{ github.event.inputs.dry-run || 'false' }}
+          verbose: true
