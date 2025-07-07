@@ -1,6 +1,7 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { StoredMetadata, MetadataManager } from './metadata-manager';
+import { getMetadataBranch, DEFAULT_METADATA_FILE } from '../constants';
 
 const execAsync = promisify(exec);
 
@@ -9,12 +10,12 @@ const execAsync = promisify(exec);
  * Stores vector store metadata in a dedicated git branch
  */
 export class GitBranchMetadataManager extends MetadataManager {
-    private readonly metadataBranch = 'metadata/vectornator';
-    private readonly metadataFile = 'metadata.json';
+    private readonly metadataBranch = getMetadataBranch();
+    private readonly metadataFile = DEFAULT_METADATA_FILE;
     private gitConfigured = false;
 
     constructor() {
-        super('.vectornator/metadata.json'); // Keep file path for local operations
+        super(); // Uses default metadata path from constants
     }
 
     /**

@@ -80,10 +80,15 @@ Add to your workflow:
 OPENAI_API_KEY=your-api-key
 OPENAI_STORE_ID=your-store-id
 
+# Metadata branch name (optional)
+VECTORNATOR_METADATA_BRANCH=metadata/my-project
+
 # Other providers (coming soon)
 PINECONE_API_KEY=your-api-key
 PINECONE_ENVIRONMENT=your-environment
 ```
+
+See [Configuration Guide](docs/Configuration.md) for more options.
 
 ### CLI Options
 

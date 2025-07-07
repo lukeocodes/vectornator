@@ -1,6 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { FileMetadata, VectorStoreFile } from '../types';
+import { DEFAULT_METADATA_PATH } from '../constants';
 
 export interface StoredMetadata {
     version: string;
@@ -21,7 +22,7 @@ export class MetadataManager {
     protected metadata: StoredMetadata | null = null;
 
     constructor(metadataPath?: string) {
-        this.metadataPath = metadataPath || '.vectornator/metadata.json';
+        this.metadataPath = metadataPath || DEFAULT_METADATA_PATH;
     }
 
     async load(): Promise<StoredMetadata> {

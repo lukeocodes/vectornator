@@ -7,6 +7,13 @@ import chalk from 'chalk';
 import { SyncEngine } from './core/sync-engine';
 import { providerRegistry } from './providers/registry';
 import { VectorStoreProvider, VectorStoreConfig } from './types';
+import {
+    DEFAULT_PROVIDER,
+    DEFAULT_STORAGE_TYPE,
+    ENV_API_KEY_PREFIX,
+    ENV_STORE_ID_PREFIX,
+    STORAGE_TYPE_GIT_BRANCH
+} from './constants';
 
 // Load environment variables
 loadEnv();
@@ -53,13 +60,13 @@ program
     .command('sync')
     .description('Sync files to vector store')
     .option('-d, --directory <path>', 'Directory to sync', '.')
-    .option('-p, --provider <name>', 'Vector store provider', 'openai')
+    .option('-p, --provider <name>', 'Vector store provider', DEFAULT_PROVIDER)
     .option('--patterns <patterns...>', 'File patterns to include')
     .option('--exclude <patterns...>', 'File patterns to exclude')
     .option('--dry-run', 'Show what would be done without making changes')
     .option('--force', 'Force sync even if no changes detected')
     .option('--metadata-file <path>', 'Path to metadata file (when using file storage)')
-    .option('--metadata-storage <type>', 'Metadata storage type: git-branch or file', 'git-branch')
+    .option('--metadata-storage <type>', 'Metadata storage type: git-branch or file', DEFAULT_STORAGE_TYPE)
     .option('--store-id <id>', 'Vector store ID')
     .option('--api-key <key>', 'API key for the provider')
     .option('-v, --verbose', 'Verbose output')
@@ -69,12 +76,12 @@ program
 
             // Get provider
             const provider = await getProvider(options.provider, {
-                apiKey: options.apiKey || process.env[`${options.provider.toUpperCase()}_API_KEY`],
-                storeId: options.storeId || process.env[`${options.provider.toUpperCase()}_STORE_ID`]
+                apiKey: options.apiKey || process.env[`${options.provider.toUpperCase()}${ENV_API_KEY_PREFIX}`],
+                storeId: options.storeId || process.env[`${options.provider.toUpperCase()}${ENV_STORE_ID_PREFIX}`]
             });
 
             // Create sync engine
-            const metadataStorage = options.metadataStorage || 'git-branch';
+            const metadataStorage = options.metadataStorage || DEFAULT_STORAGE_TYPE;
             const engine = new SyncEngine(provider, options.metadataFile, metadataStorage);
 
             console.log(chalk.gray(`Using ${metadataStorage} for metadata storage`));
@@ -166,7 +173,7 @@ program
         try {
             const metadataStorage = options.metadataStorage || 'git-branch';
 
-            if (metadataStorage === 'git-branch') {
+            if (metadataStorage === STORAGE_TYPE_GIT_BRANCH) {
                 const { GitBranchMetadataManager } = await import('./core/git-branch-metadata-manager');
                 const manager = new GitBranchMetadataManager();
 

@@ -2,6 +2,7 @@ import { VectorStoreProvider, SyncOptions, SyncResult, ProgressCallback } from '
 import { FileScanner } from './file-scanner';
 import { MetadataManager } from './metadata-manager';
 import { GitBranchMetadataManager } from './git-branch-metadata-manager';
+import { STORAGE_TYPE_GIT_BRANCH, DEFAULT_STORAGE_TYPE } from '../constants';
 import chalk from 'chalk';
 import ora from 'ora';
 
@@ -11,13 +12,13 @@ export class SyncEngine {
     private metadataManager: MetadataManager;
     private verbose: boolean = false;
 
-    constructor(provider: VectorStoreProvider, metadataPath?: string, metadataStorage: string = 'git-branch') {
+    constructor(provider: VectorStoreProvider, metadataPath?: string, metadataStorage: string = DEFAULT_STORAGE_TYPE) {
         this.provider = provider;
         this.scanner = new FileScanner();
 
         // Choose metadata manager based on storage type
         switch (metadataStorage) {
-            case 'git-branch':
+            case STORAGE_TYPE_GIT_BRANCH:
                 this.metadataManager = new GitBranchMetadataManager();
                 break;
             case 'file':
