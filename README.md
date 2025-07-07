@@ -175,7 +175,7 @@ Vectornator uses a **dedicated git branch** by default to store sync metadata. T
 - ✅ Works seamlessly with GitHub Actions
 - ✅ No timing issues between local and CI syncs
 
-The metadata is stored in the `vectornator-metadata` branch and includes:
+The metadata is stored in the `metadata/vectornator` branch and includes:
 
 - File hashes for change detection
 - Vector store file IDs
@@ -278,7 +278,7 @@ Vectornator supports two metadata storage strategies:
 
 #### Git Branch (Default)
 
-Uses a dedicated `vectornator-metadata` branch to store sync state:
+Uses a dedicated `metadata/vectornator` branch to store sync state:
 
 - Metadata is independent of commits
 - Works seamlessly with GitHub Actions
@@ -340,10 +340,10 @@ If you need to reset the metadata branch:
 
 ```bash
 # Delete local metadata branch
-git branch -D vectornator-metadata
+git branch -D metadata/vectornator
 
 # Delete remote metadata branch
-git push origin --delete vectornator-metadata
+git push origin --delete metadata/vectornator
 
 # Run sync again to recreate
 vectornator sync

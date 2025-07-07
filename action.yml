@@ -78,7 +78,7 @@ runs:
       shell: bash
       run: |
         # Fetch the metadata branch if it exists
-        git fetch origin vectornator-metadata:vectornator-metadata 2>/dev/null || true
+        git fetch origin metadata/vectornator:metadata/vectornator 2>/dev/null || true
 
     - name: Install Vectornator
       shell: bash
@@ -157,9 +157,9 @@ runs:
       shell: bash
       run: |
         # Push the metadata branch if it exists
-        if git rev-parse --verify vectornator-metadata >/dev/null 2>&1; then
+        if git rev-parse --verify metadata/vectornator >/dev/null 2>&1; then
           echo "Pushing metadata branch to remote..."
-          git push origin vectornator-metadata 2>/dev/null || {
+          git push origin metadata/vectornator 2>/dev/null || {
             echo "::warning::Unable to push metadata branch. This may be due to permissions or first-time use."
           }
         fi

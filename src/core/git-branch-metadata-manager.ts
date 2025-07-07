@@ -9,7 +9,7 @@ const execAsync = promisify(exec);
  * Stores vector store metadata in a dedicated git branch
  */
 export class GitBranchMetadataManager extends MetadataManager {
-    private readonly metadataBranch = 'vectornator-metadata';
+    private readonly metadataBranch = 'metadata/vectornator';
     private readonly metadataFile = 'metadata.json';
     private gitConfigured = false;
 

@@ -60,7 +60,7 @@ Vectornator is a tool for maintaining remote vector stores with repository conte
 
 ### Git Branch (Default)
 
-Metadata is stored in a dedicated `vectornator-metadata` branch:
+Metadata is stored in a dedicated `metadata/vectornator` branch:
 
 ```json
 {
