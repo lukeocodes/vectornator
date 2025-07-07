@@ -74,6 +74,17 @@ runs:
       with:
         node-version: "18"
 
+    - name: Configure Git for Metadata
+      shell: bash
+      run: |
+        # Fetch the metadata branch if it exists
+        git fetch origin vectornator-metadata:vectornator-metadata 2>/dev/null || true
+
+        # Also configure for git notes (backward compatibility)
+        git config --add notes.displayRef refs/notes/vectornator
+        git config --add remote.origin.fetch "+refs/notes/*:refs/notes/*"
+        git fetch origin refs/notes/*:refs/notes/* 2>/dev/null || true
+
     - name: Install Vectornator
       shell: bash
       run: |
@@ -144,4 +155,24 @@ runs:
         # Exit with error if sync failed
         if [ -n "$EXIT_CODE" ]; then
           exit $EXIT_CODE
+        fi
+
+    - name: Push Metadata Updates
+      if: ${{ inputs.dry-run != 'true' }}
+      shell: bash
+      run: |
+        # Push the metadata branch if it exists
+        if git rev-parse --verify vectornator-metadata >/dev/null 2>&1; then
+          echo "Pushing metadata branch to remote..."
+          git push origin vectornator-metadata 2>/dev/null || {
+            echo "::warning::Unable to push metadata branch. This may be due to permissions or first-time use."
+          }
+        fi
+
+        # Also push git notes if they exist (backward compatibility)
+        if git notes --ref=vectornator list >/dev/null 2>&1; then
+          echo "Pushing git notes to remote..."
+          git push origin refs/notes/vectornator 2>/dev/null || {
+            echo "::warning::Unable to push git notes. This may be due to permissions or first-time use."
+          }
         fi

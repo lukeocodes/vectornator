@@ -275,6 +275,54 @@ vectornator/
 4. **Smart Sync**: Only uploads changed files, removes deleted files
 5. **State Tracking**: Stores sync state in git notes or local file
 
+### Metadata Storage
+
+Vectornator supports multiple metadata storage strategies:
+
+#### Git Branch (Default)
+
+Uses a dedicated `vectornator-metadata` branch to store sync state:
+
+- Metadata is independent of commits
+- Works seamlessly with GitHub Actions
+- No timing issues between local and CI syncs
+
+```bash
+# Push metadata branch after local sync
+git push origin vectornator-metadata
+```
+
+#### Git Notes (Legacy)
+
+Attaches metadata to specific commits:
+
+- Sync state travels with commit history
+- Different commits have different states
+- May have timing issues in CI/CD
+
+```bash
+# Use git notes storage
+vectornator sync --metadata-storage git-notes
+
+# Push notes after sync
+git push origin refs/notes/vectornator
+```
+
+#### File-based
+
+Stores metadata in `.vectornator/metadata.json`:
+
+- Simple and portable
+- No git integration required
+- Must be committed to share state
+
+```bash
+# Use file storage
+vectornator sync --metadata-storage file
+```
+
+The GitHub Action automatically handles fetching and pushing metadata for all storage types.
+
 ## Best Practices
 
 1. **Use Specific Patterns**: Target only the files you need in vector store
