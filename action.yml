@@ -2,8 +2,8 @@ name: "Luke's Vectornator"
 description: "Maintain remote vector stores with your repository content"
 author: "Luke Oliff"
 branding:
-  icon: "database"
-  color: "purple"
+  icon: "zap"
+  color: "black"
 
 inputs:
   directory:
@@ -39,8 +39,18 @@ inputs:
     required: false
     default: "false"
 
+  force:
+    description: "Force sync even if no changes detected"
+    required: false
+    default: "false"
+
+  metadata-storage:
+    description: "Metadata storage type: git-branch or file"
+    required: false
+    default: "git-branch"
+
   metadata-file:
-    description: "Path to metadata file"
+    description: "Path to metadata file (when using file storage)"
     required: false
     default: ".vectornator/metadata.json"
 
@@ -77,8 +87,15 @@ runs:
     - name: Configure Git for Metadata
       shell: bash
       run: |
-        # Fetch the metadata branch if it exists
-        git fetch origin metadata/vectornator:metadata/vectornator 2>/dev/null || true
+        # Configure git identity for GitHub Actions
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git config --global user.name "github-actions[bot]"
+
+        # Only fetch metadata branch if using git-branch storage
+        if [ "${{ inputs.metadata-storage }}" = "git-branch" ]; then
+          # Fetch the metadata branch if it exists
+          git fetch origin metadata/vectornator:metadata/vectornator 2>/dev/null || true
+        fi
 
     - name: Install Vectornator
       shell: bash
@@ -88,6 +105,10 @@ runs:
     - name: Sync to Vector Store
       id: sync
       shell: bash
+      env:
+        # Pass API key and store ID as environment variables
+        ${{ inputs.provider }}_API_KEY: ${{ inputs.api-key }}
+        ${{ inputs.provider }}_STORE_ID: ${{ inputs.store-id }}
       run: |
         # Convert comma-separated patterns to space-separated
         PATTERNS="${{ inputs.patterns }}"
@@ -113,21 +134,24 @@ runs:
         CMD="vectornator sync"
         CMD="$CMD --directory ${{ inputs.directory }}"
         CMD="$CMD --provider ${{ inputs.provider }}"
-        CMD="$CMD --api-key ${{ inputs.api-key }}"
-
-        if [ -n "${{ inputs.store-id }}" ]; then
-          CMD="$CMD --store-id ${{ inputs.store-id }}"
-        fi
+        CMD="$CMD --metadata-storage ${{ inputs.metadata-storage }}"
 
         if [ "${{ inputs.dry-run }}" = "true" ]; then
           CMD="$CMD --dry-run"
+        fi
+
+        if [ "${{ inputs.force }}" = "true" ]; then
+          CMD="$CMD --force"
         fi
 
         if [ "${{ inputs.verbose }}" = "true" ]; then
           CMD="$CMD --verbose"
         fi
 
-        CMD="$CMD --metadata-file ${{ inputs.metadata-file }}"
+        if [ "${{ inputs.metadata-storage }}" = "file" ]; then
+          CMD="$CMD --metadata-file ${{ inputs.metadata-file }}"
+        fi
+
         CMD="$CMD $PATTERNS_ARGS"
         CMD="$CMD $EXCLUDE_ARGS"
 
@@ -153,7 +177,7 @@ runs:
         fi
 
     - name: Push Metadata Updates
-      if: ${{ inputs.dry-run != 'true' }}
+      if: ${{ inputs.dry-run != 'true' && inputs.metadata-storage == 'git-branch' }}
       shell: bash
       run: |
         # Push the metadata branch if it exists
