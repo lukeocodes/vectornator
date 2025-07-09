@@ -35,26 +35,23 @@ jobs:
           # Get the previous tag
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 ${LATEST_TAG}^ 2>/dev/null || echo "")
 
-          # Generate changelog content
-          if [ -z "$PREVIOUS_TAG" ]; then
-            echo "# Changelog" > CHANGELOG.md
-            echo "" >> CHANGELOG.md
-            echo "## ${LATEST_TAG} ($(date +%Y-%m-%d))" >> CHANGELOG.md
-          else
-            # Prepend new release to existing changelog
-            echo "## ${LATEST_TAG} ($(date +%Y-%m-%d))" > CHANGELOG.tmp
-          fi
-
+          # Create temporary file for new entry
+          echo "## ${LATEST_TAG} ($(date +%Y-%m-%d))" > CHANGELOG.tmp
           echo "" >> CHANGELOG.tmp
           echo "${{ github.event.release.body }}" >> CHANGELOG.tmp
           echo "" >> CHANGELOG.tmp
 
-          # Append existing changelog if it exists
-          if [ -f CHANGELOG.md ] && [ -n "$PREVIOUS_TAG" ]; then
+          # Handle existing changelog
+          if [ -f CHANGELOG.md ]; then
+            # Append existing changelog
             cat CHANGELOG.md >> CHANGELOG.tmp
             mv CHANGELOG.tmp CHANGELOG.md
-          elif [ -n "$PREVIOUS_TAG" ]; then
-            mv CHANGELOG.tmp CHANGELOG.md
+          else
+            # First release - create new changelog
+            echo "# Changelog" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            cat CHANGELOG.tmp >> CHANGELOG.md
+            rm CHANGELOG.tmp
           fi
 
       - name: Update package.json version
@@ -66,7 +63,7 @@ jobs:
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           commit-message: "chore: update changelog and version for ${{ github.event.release.tag_name }}"
           title: "chore: update changelog and version for ${{ github.event.release.tag_name }}"
           body: |
