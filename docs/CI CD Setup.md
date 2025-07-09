@@ -81,7 +81,7 @@ The main pipeline runs on every push and pull request:
 
 #### Code Quality Workflows
 
-- **CodeQL Analysis**: Security and quality analysis
+- **CodeQL Analysis**: Uses GitHub's default code scanning setup (configured in repository settings)
 - **Dependency Review**: Reviews dependencies for vulnerabilities
 - **Dependabot**: Automated dependency updates
 
