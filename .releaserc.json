@@ -122,27 +122,10 @@
             }
         ],
         [
-            "@semantic-release/changelog",
-            {
-                "changelogFile": "CHANGELOG.md"
-            }
-        ],
-        [
             "@semantic-release/npm",
             {
                 "npmPublish": true,
                 "tarballDir": "dist"
-            }
-        ],
-        [
-            "@semantic-release/git",
-            {
-                "assets": [
-                    "CHANGELOG.md",
-                    "package.json",
-                    "package-lock.json"
-                ],
-                "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
             }
         ],
         [
@@ -153,6 +136,11 @@
                         "path": "dist/*.tgz",
                         "label": "NPM package"
                     }
+                ],
+                "successComment": "🎉 This PR is included in version ${nextRelease.version} 🎉\n\nThe release is available on:\n- [GitHub release](https://github.com/lukeocodes/vectornator/releases/tag/${nextRelease.gitTag})\n- [npm package](https://www.npmjs.com/package/@lukeocodes/vectornator/v/${nextRelease.version})\n\nYour semantic-release bot 📦🚀",
+                "failComment": false,
+                "releasedLabels": [
+                    "released"
                 ]
             }
         ]
