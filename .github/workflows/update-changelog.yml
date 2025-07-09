@@ -1,0 +1,80 @@
+name: Update Changelog
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-changelog:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate changelog
+        run: |
+          # Get the latest tag
+          LATEST_TAG="${{ github.event.release.tag_name }}"
+
+          # Get the previous tag
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 ${LATEST_TAG}^ 2>/dev/null || echo "")
+
+          # Create temporary file for new entry
+          echo "## ${LATEST_TAG} ($(date +%Y-%m-%d))" > CHANGELOG.tmp
+          echo "" >> CHANGELOG.tmp
+          echo "${{ github.event.release.body }}" >> CHANGELOG.tmp
+          echo "" >> CHANGELOG.tmp
+
+          # Handle existing changelog
+          if [ -f CHANGELOG.md ]; then
+            # Append existing changelog
+            cat CHANGELOG.md >> CHANGELOG.tmp
+            mv CHANGELOG.tmp CHANGELOG.md
+          else
+            # First release - create new changelog
+            echo "# Changelog" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            cat CHANGELOG.tmp >> CHANGELOG.md
+            rm CHANGELOG.tmp
+          fi
+
+      - name: Update package.json version
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix if present
+          npm version $VERSION --no-git-tag-version
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update changelog and version for ${{ github.event.release.tag_name }}"
+          title: "chore: update changelog and version for ${{ github.event.release.tag_name }}"
+          body: |
+            This PR updates the CHANGELOG.md and package.json version after the release of ${{ github.event.release.tag_name }}.
+
+            This is an automated PR created after the semantic-release process.
+
+            - Updates CHANGELOG.md with release notes
+            - Updates package.json version to match the release
+          branch: changelog-update-${{ github.event.release.tag_name }}
+          delete-branch: true
+          labels: |
+            documentation
+            automated

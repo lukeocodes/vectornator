@@ -150,6 +150,38 @@ The following secrets must be configured in GitHub:
    - GitHub release creation
    - Git tag creation
 
+### PR-Based Release Workflow
+
+The release process has been updated to work with branch protection rules:
+
+1. **Semantic Release** runs and:
+
+   - Analyzes commits to determine version bump
+   - Publishes to npm
+   - Creates GitHub release with notes
+   - Creates git tag
+
+2. **Update Changelog** workflow triggers on release and:
+
+   - Creates a PR with CHANGELOG.md updates
+   - Updates package.json version
+   - Labels PR as `automated` and `documentation`
+
+3. **Auto-merge** workflow:
+   - Automatically approves changelog PRs
+   - Enables auto-merge
+   - PR merges after all checks pass
+
+### Requirements for Auto-merge
+
+For the auto-merge to work properly:
+
+1. **If using rulesets**: The RELEASE_TOKEN (PAT) helps create PRs that can be approved by the bot
+2. **If requiring CODEOWNERS**: You may need to:
+   - Add an exception for automated PRs in CODEOWNERS
+   - Or manually approve the first few PRs until you're comfortable with the automation
+3. **Required status checks**: Will run automatically on the PR
+
 ## Version Bumping Rules
 
 - **Major** (x.0.0): Breaking changes (manually triggered with `BREAKING CHANGE:` in commit)
