@@ -1,0 +1,116 @@
+name: Test Sync Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: "Vector store provider"
+        required: false
+        default: "openai"
+        type: choice
+        options:
+          - openai
+          - example
+      dry-run:
+        description: "Run in dry-run mode"
+        required: false
+        default: true
+        type: boolean
+      verbose:
+        description: "Enable verbose output"
+        required: false
+        default: true
+        type: boolean
+      metadata-storage:
+        description: "Metadata storage type"
+        required: false
+        default: "git-branch"
+        type: choice
+        options:
+          - git-branch
+          - file
+
+jobs:
+  test-sync:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # Required for git operations
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the project
+        run: npm run build
+
+      - name: Create test documentation
+        run: |
+          mkdir -p test-docs
+          echo "# Test Document 1" > test-docs/test1.md
+          echo "This is a test document for vectornator sync." >> test-docs/test1.md
+          echo "" >> test-docs/test1.md
+          echo "## Features" >> test-docs/test1.md
+          echo "- Feature 1" >> test-docs/test1.md
+          echo "- Feature 2" >> test-docs/test1.md
+
+          echo "# Test Document 2" > test-docs/test2.md
+          echo "Another test document with different content." >> test-docs/test2.md
+
+          mkdir -p test-docs/subfolder
+          echo "# Nested Document" > test-docs/subfolder/nested.md
+          echo "This document is in a subfolder." >> test-docs/subfolder/nested.md
+
+      - name: Run sync
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_STORE_ID: ${{ secrets.OPENAI_VECTOR_STORE_ID }}
+          EXAMPLE_API_KEY: "test-key"
+        run: |
+          echo "Running sync with provider: ${{ inputs.provider }}"
+          echo "Dry run: ${{ inputs.dry-run }}"
+          echo "Metadata storage: ${{ inputs.metadata-storage }}"
+
+          node dist/cli.js sync \
+            --provider ${{ inputs.provider }} \
+            --directory test-docs \
+            --patterns "**/*.md" \
+            --metadata-storage ${{ inputs.metadata-storage }} \
+            ${{ inputs.dry-run && '--dry-run' || '' }} \
+            ${{ inputs.verbose && '--verbose' || '' }}
+
+      - name: Show metadata (file storage)
+        if: inputs.metadata-storage == 'file'
+        run: |
+          echo "=== File-based metadata ==="
+          node dist/cli.js show-metadata --metadata-storage file
+
+      - name: Show metadata (git branch)
+        if: inputs.metadata-storage == 'git-branch'
+        run: |
+          echo "=== Git branch metadata ==="
+          node dist/cli.js show-metadata --metadata-storage git-branch
+
+          echo ""
+          echo "=== Git branches ==="
+          git branch -a | grep metadata || echo "No metadata branch found"
+
+      - name: List files in vector store
+        if: inputs.provider == 'openai' && !inputs.dry-run
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_STORE_ID: ${{ secrets.OPENAI_VECTOR_STORE_ID }}
+        run: |
+          echo "=== Files in vector store ==="
+          node dist/cli.js list --provider openai

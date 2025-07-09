@@ -256,6 +256,23 @@ npm test
 npm run dev
 ```
 
+### Testing with GitHub Actions
+
+During development, you can test the sync functionality using the test workflow:
+
+```bash
+# Go to Actions tab in GitHub and run "Test Sync Workflow"
+# Or trigger via GitHub CLI:
+gh workflow run test-sync.yml -f dry-run=true -f provider=openai
+```
+
+The test workflow allows you to:
+
+- Test different providers (openai, example)
+- Toggle dry-run mode
+- Test different metadata storage types
+- Create test documents automatically
+
 ## Architecture
 
 ```

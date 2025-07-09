@@ -20,27 +20,35 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write # Required for git notes
+      contents: write # Required for git operations
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Required for git notes
+          fetch-depth: 0 # Required for git history
 
-      - name: Configure git for notes
-        run: |
-          git config --add notes.displayRef refs/notes/vectornator
-          git config --add remote.origin.fetch "+refs/notes/*:refs/notes/*"
-          git fetch origin refs/notes/*:refs/notes/*
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the project
+        run: npm run build
 
       - name: Sync to OpenAI Vector Store
-        uses: lukeocodes/vectornator@v1.0.0
-        with:
-          api-key: ${{ secrets.OPENAI_API_KEY }}
-          store-id: ${{ secrets.OPENAI_VECTOR_STORE_ID }}
-          directory: docs
-          patterns: "**/*.md,**/*.mdx"
-          exclude: "**/test/**,**/drafts/**"
-          dry-run: ${{ github.event.inputs.dry-run || 'false' }}
-          verbose: true
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_STORE_ID: ${{ secrets.OPENAI_VECTOR_STORE_ID }}
+        run: |
+          node dist/cli.js sync \
+            --provider openai \
+            --directory docs \
+            --patterns "**/*.md" "**/*.mdx" \
+            --exclude "**/test/**" "**/drafts/**" \
+            ${{ github.event.inputs.dry-run == 'true' && '--dry-run' || '' }} \
+            --verbose
