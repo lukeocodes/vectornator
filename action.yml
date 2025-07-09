@@ -2,8 +2,8 @@ name: "Luke's Vectornator"
 description: "Maintain remote vector stores with your repository content"
 author: "Luke Oliff"
 branding:
-  icon: "database"
-  color: "purple"
+  icon: "zap"
+  color: "black"
 
 inputs:
   directory:

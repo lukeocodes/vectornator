@@ -8,6 +8,7 @@ dist/
 # Test coverage
 coverage/
 .nyc_output/
+*.lcov
 
 # Environment files
 .env
