@@ -39,7 +39,7 @@
         "action.yml"
     ],
     "dependencies": {
-        "chalk": "^4.1.2",
+        "chalk": "^5.5.0",
         "commander": "^11.1.0",
         "dotenv": "^16.3.1",
         "glob": "^10.3.10",
